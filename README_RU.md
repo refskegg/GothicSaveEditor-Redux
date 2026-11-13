@@ -44,7 +44,7 @@
 
 ## Требования и сборка
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/) (Windows)
+- [.NET 10 SDK](https://dotnet.microsoft.com/) или новее (Windows; для запуска — Desktop Runtime 10+)
 
 ```bash
 # Сборка решения

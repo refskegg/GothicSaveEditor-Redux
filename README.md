@@ -44,7 +44,7 @@ For many years, the classic GothicSaveEditor has been an indispensable tool for 
 
 ## Requirements & Build
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/) (Windows)
+- [.NET 10 SDK](https://dotnet.microsoft.com/) or newer (Windows; Desktop Runtime 10+ to run)
 
 ```bash
 # Build the solution
