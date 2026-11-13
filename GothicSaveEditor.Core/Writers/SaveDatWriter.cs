@@ -17,7 +17,8 @@ public static class SaveDatWriter
     public static void Save(
         SaveGame saveGame,
         string? destinationPath = null,
-        IProgress<double>? progress = null)
+        IProgress<double>? progress = null,
+        bool resetModifiedFlags = true)
     {
         string sourcePath = saveGame.FilePath;
         string targetPath = string.IsNullOrWhiteSpace(destinationPath) ? sourcePath : destinationPath;
@@ -90,8 +91,11 @@ public static class SaveDatWriter
 
             if (isInPlace)
             {
-                foreach (var variable in modifiedVars)
-                    variable.SetUnModified();
+                if (resetModifiedFlags)
+                {
+                    foreach (var variable in modifiedVars)
+                        variable.SetUnModified();
+                }
 
                 var updatedInfo = new FileInfo(targetPath);
                 saveGame.FileLength = updatedInfo.Length;

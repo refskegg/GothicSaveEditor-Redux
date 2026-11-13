@@ -144,10 +144,21 @@ namespace GothicSaveEditor.ViewModels
         {
             if (e.PropertyName == nameof(GothicVariable.Modified) && sender is GothicVariable v)
             {
-                _modifiedCount += v.Modified ? 1 : -1;
-                if (_modifiedCount < 0) _modifiedCount = 0;
-                NotifyModifiedChanged();
+                var dispatcher = Application.Current?.Dispatcher;
+                if (dispatcher != null && !dispatcher.CheckAccess())
+                {
+                    dispatcher.Invoke(() => UpdateModifiedCount(v.Modified));
+                    return;
+                }
+                UpdateModifiedCount(v.Modified);
             }
+        }
+
+        private void UpdateModifiedCount(bool isModified)
+        {
+            _modifiedCount += isModified ? 1 : -1;
+            if (_modifiedCount < 0) _modifiedCount = 0;
+            NotifyModifiedChanged();
         }
 
         private void ClearWorkSpace()

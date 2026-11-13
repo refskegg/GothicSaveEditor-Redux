@@ -196,4 +196,136 @@ public class RoundtripAndFuzzTests : IDisposable
         string actual = enc.GetString(raw);
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void Roundtrip_SyntheticBinSafe_PatchesExactVariableOffset_AndPreservesRestByteIdentical()
+    {
+        // Build a minimal valid ZenGin BIN_SAFE SAVEDAT.SAV with:
+        // - ASCII header ending in END\n
+        // - BinSafe header (version=2, objectCount=1, hashTableOffset)
+        // - 4 header scalars (day, hour, min, numInfos)
+        // - 1 dialog (told=0, "DIA_TEST")
+        // - 1 MIS topic ("TestQuest", status=1, section=0, numEntries=0)
+        // - 2 variables: MIS_ARREST=1 and TEST_COUNTER=42
+        // - Trailing hash table
+        using var ms = new MemoryStream();
+        byte[] asciiHeader = Encoding.ASCII.GetBytes(
+            "ZenGin Archive\nver 1\nzCArchiverBinSafe\nBIN_SAFE\nsaveGame 1\ndate 13.11.2026 10:00:00\nuser Test\nEND\n");
+        ms.Write(asciiHeader);
+
+        int binHeaderPos = (int)ms.Position;
+        ms.Write(new byte[12]); // placeholder for version, objectCount, hashTableOffset
+
+        void WriteHashInt(uint hash, int val)
+        {
+            ms.WriteByte(0x12);
+            Span<byte> b = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian(b, hash);
+            ms.Write(b);
+            ms.WriteByte(0x02);
+            BinaryPrimitives.WriteInt32LittleEndian(b, val);
+            ms.Write(b);
+        }
+
+        void WriteHashBool(uint hash, int val)
+        {
+            ms.WriteByte(0x12);
+            Span<byte> b = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian(b, hash);
+            ms.Write(b);
+            ms.WriteByte(0x06);
+            BinaryPrimitives.WriteInt32LittleEndian(b, val);
+            ms.Write(b);
+        }
+
+        void WriteHashEnum(uint hash, int val)
+        {
+            ms.WriteByte(0x12);
+            Span<byte> b = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian(b, hash);
+            ms.Write(b);
+            ms.WriteByte(0x11);
+            BinaryPrimitives.WriteInt32LittleEndian(b, val);
+            ms.Write(b);
+        }
+
+        void WriteHashString(uint hash, string s)
+        {
+            ms.WriteByte(0x12);
+            Span<byte> b = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian(b, hash);
+            ms.Write(b);
+            ms.WriteByte(0x01);
+            byte[] strBytes = Encoding.ASCII.GetBytes(s);
+            Span<byte> lenBuf = stackalloc byte[2];
+            BinaryPrimitives.WriteUInt16LittleEndian(lenBuf, (ushort)strBytes.Length);
+            ms.Write(lenBuf);
+            ms.Write(strBytes);
+        }
+
+        // Header scalars
+        WriteHashInt(0, 1);
+        WriteHashInt(1, 12);
+        WriteHashInt(2, 0);
+        WriteHashInt(3, 1);
+
+        // Dialog
+        WriteHashBool(4, 0);
+        WriteHashString(5, "DIA_TEST");
+
+        // MIS (1 topic)
+        WriteHashInt(6, 1);
+        WriteHashString(7, "TestQuest");
+        WriteHashEnum(8, 0);
+        WriteHashEnum(9, 1);
+        WriteHashInt(10, 0);
+
+        // Variables
+        WriteHashInt(11, 2); // numSymbols
+        WriteHashString(12, "MIS_ARREST");
+        WriteHashInt(13, 1); // count
+        int misArrestValueOffset = (int)ms.Position + 6;
+        WriteHashInt(14, 1);
+
+        WriteHashString(15, "TEST_COUNTER");
+        WriteHashInt(16, 1); // count
+        WriteHashInt(17, 42);
+
+        int hashTableOffset = (int)ms.Position;
+        ms.Write(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // empty hash table count=0
+
+        byte[] data = ms.ToArray();
+        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(binHeaderPos, 4), 2);
+        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(binHeaderPos + 4, 4), 1);
+        BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(binHeaderPos + 8, 4), hashTableOffset);
+
+        string filePath = Path.Combine(_tempDir, "SYNTH_SAVEDAT.SAV");
+        File.WriteAllBytes(filePath, data);
+
+        // Load, change MIS_ARREST from 1 -> 3, save
+        var saveGame = BinSafeReader.ReadSaveGame(filePath);
+        var misArrest = saveGame.VariablesList.Single(v => v.FullName == "MIS_ARREST");
+        Assert.Equal(1, misArrest.Value);
+        Assert.Equal(misArrestValueOffset, misArrest.Position);
+
+        misArrest.Value = 3;
+        SaveDatWriter.Save(saveGame, resetModifiedFlags: false);
+
+        byte[] after = File.ReadAllBytes(filePath);
+        Assert.Equal(data.Length, after.Length);
+        Assert.Equal(3, BinaryPrimitives.ReadInt32LittleEndian(after.AsSpan(misArrestValueOffset, 4)));
+
+        // Every other byte must be identical
+        for (int i = 0; i < data.Length; i++)
+        {
+            if (i >= misArrestValueOffset && i < misArrestValueOffset + 4)
+                continue;
+            Assert.Equal(data[i], after[i]);
+        }
+
+        // Reload and verify
+        var reloaded = BinSafeReader.ReadSaveGame(filePath);
+        Assert.Equal(3, reloaded.VariablesList.Single(v => v.FullName == "MIS_ARREST").Value);
+        Assert.Equal(42, reloaded.VariablesList.Single(v => v.FullName == "TEST_COUNTER").Value);
+    }
 }

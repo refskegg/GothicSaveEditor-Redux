@@ -107,7 +107,12 @@ namespace GothicSaveEditor.ViewModels
                     }
                 }
 
-                await Task.Run(() => SaveDatWriter.Save(saveGame, progress: progress));
+                await Task.Run(() => SaveDatWriter.Save(saveGame, progress: progress, resetModifiedFlags: false));
+                foreach (var variable in saveGame.VariablesList)
+                {
+                    if (variable.Modified)
+                        variable.SetUnModified();
+                }
                 _modifiedCount = 0;
                 NotifyModifiedChanged();
                 SetDynamicInfo("SavedSucessfully", setToPath: true);
