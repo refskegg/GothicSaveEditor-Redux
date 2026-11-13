@@ -12,6 +12,14 @@
 
 ---
 
+## Warum GothicSaveEditor Redux?
+
+Der klassische GothicSaveEditor war über viele Jahre ein unverzichtbares Werkzeug, um Spielstände in **Gothic I & II** auszulesen, Quest-Variablen zu reparieren oder Werte anzupassen – stieß aber bei modernen, riesigen Total-Conversion-Mods wie **Odyssee** oft an seine Grenzen und stürzte ab oder fror beim Laden ein.
+
+**GothicSaveEditor Redux** belebt das Tool von Grund auf neu: Es öffnet selbst gigantische Mod-Spielstände in wenigen Millisekunden, läuft gestochen scharf auf modernen Windows-PCs und legt vor jeder Änderung automatisch ein Sicherheits-Backup deines Spielstands an.
+
+---
+
 ## Highlights & Features
 
 - **Strukturierter `BinSafeReader` (.NET 10 / AnyCPU 64-Bit)**

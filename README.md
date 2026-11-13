@@ -12,6 +12,14 @@
 
 ---
 
+## Why GothicSaveEditor Redux?
+
+For many years, the classic GothicSaveEditor has been an indispensable tool for inspecting savegames in **Gothic I & II**, fixing stuck quest variables, or adjusting values — yet it frequently hit its limits on modern, massive total-conversion mods like **Odyssee**, crashing or freezing while loading.
+
+**GothicSaveEditor Redux** rebuilds the tool from the ground up: it opens even gigantic mod savegames in milliseconds, renders razor-sharp on modern Windows PCs, and automatically creates a safety backup of your savegame before every change.
+
+---
+
 ## Highlights & Features
 
 - **Structured `BinSafeReader` (.NET 10 / AnyCPU 64-bit)**
