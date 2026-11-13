@@ -70,3 +70,7 @@ dotnet run --project GothicSaveEditor.csproj
 ## Credits
 
 Based on the original **GothicSaveEditor** fork by **Flycrafting** (originally created by **RightMAN**).
+
+## Development & Transparency
+
+The migration to .NET 10, the UI redesign, as well as large parts of the code modernization and unit tests were implemented with the assistance of AI tools (Claude & Gemini) and subsequently reviewed manually and tested with real savegames (including *Odyssee*).
