@@ -1,202 +1,238 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
+using CommunityToolkit.Mvvm.Input;
 using GothicSaveEditor.Core.Services;
 using GothicSaveEditor.Core.Utils;
-using GothicSaveEditor.Models;
+using GothicSaveEditor.Core.Writers;
 
 namespace GothicSaveEditor.ViewModels
 {
     public partial class MainViewModel
     {
-        public RelayCommand OpenCommand
+        public IAsyncRelayCommand OpenCommand { get; private set; } = null!;
+        public IAsyncRelayCommand SaveCommand { get; private set; } = null!;
+        public IAsyncRelayCommand SaveAsCommand { get; private set; } = null!;
+        public IRelayCommand CloseCommand { get; private set; } = null!;
+        public IRelayCommand SettingsCommand { get; private set; } = null!;
+        public IAsyncRelayCommand MakeBackupCommand { get; private set; } = null!;
+        public IRelayCommand AboutCommand { get; private set; } = null!;
+        public IAsyncRelayCommand ExportVariablesCommand { get; private set; } = null!;
+        public IRelayCommand CancelCommand { get; private set; } = null!;
+
+        private void InitializeCommands()
         {
-            get
+            OpenCommand = new AsyncRelayCommand(ExecuteOpenAsync, () => !IsBusy);
+            SaveCommand = new AsyncRelayCommand(ExecuteSaveAsync, () => IsSaveModified && !IsBusy);
+            SaveAsCommand = new AsyncRelayCommand(ExecuteSaveAsAsync, () => !IsSaveNull && !IsBusy);
+            CloseCommand = new RelayCommand(ExecuteClose, () => !IsSaveNull && !IsBusy);
+            SettingsCommand = new RelayCommand(ExecuteSettings);
+            MakeBackupCommand = new AsyncRelayCommand(ExecuteMakeBackupAsync, () => !IsSaveNull && !IsBusy);
+            AboutCommand = new RelayCommand(ExecuteAbout);
+            ExportVariablesCommand = new AsyncRelayCommand(ExecuteExportVariablesAsync, () => !IsSaveNull && !IsBusy);
+            CancelCommand = new RelayCommand(() => _operationCts?.Cancel(), () => IsBusy);
+        }
+
+        private void NotifyCommandsCanExecuteChanged()
+        {
+            OpenCommand.NotifyCanExecuteChanged();
+            SaveCommand.NotifyCanExecuteChanged();
+            SaveAsCommand.NotifyCanExecuteChanged();
+            CloseCommand.NotifyCanExecuteChanged();
+            MakeBackupCommand.NotifyCanExecuteChanged();
+            ExportVariablesCommand.NotifyCanExecuteChanged();
+            CancelCommand.NotifyCanExecuteChanged();
+        }
+
+        private async Task ExecuteOpenAsync()
+        {
+            if (!IsSaveNull && !CanCloseSave)
+                return;
+
+            string? saveGamePath;
+            try
             {
-                return new RelayCommand(obj =>
+                saveGamePath = FileService.ImportSave();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+                MessageBox.Show(ResourceServices.GetString("UnableToLoadSavegameLoadError"));
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(saveGamePath))
+                return;
+
+            if (!File.Exists(saveGamePath))
+            {
+                MessageBox.Show(ResourceServices.GetString("UnableToLoadSavegameWrongPath"));
+                return;
+            }
+
+            ClearWorkSpace();
+            await LoadSaveGameAsync(saveGamePath);
+        }
+
+        private async Task ExecuteSaveAsync()
+        {
+            var saveGame = _openedSaveGame;
+            if (saveGame == null) return;
+
+            IsBusy = true;
+            ProgressValue = 0;
+            LeftInfoLine = ResourceServices.GetString("SavingSaveGame");
+            var progress = new Progress<double>(p => ProgressValue = p * 100.0);
+
+            try
+            {
+                // Mandatory backup check before saving
+                if (Options.KeepBackups)
                 {
-                    if (!IsSaveNull && !CanCloseSave)
+                    try
+                    {
+                        await Task.Run(() => BackupService.MakeBackup(saveGame.FilePath, Options.MaxBackups));
+                    }
+                    catch (Exception backupEx)
+                    {
+                        Logger.Error(backupEx, "Mandatory backup failed; aborting save.");
+                        MessageBox.Show(
+                            ResourceServices.GetString("UnableToBackup") + "\n" + backupEx.Message,
+                            ResourceServices.GetString("Warning"),
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+                        LeftInfoLine = saveGame.FilePath;
                         return;
+                    }
+                }
 
-                    string saveGamePath = null;
-                    try
-                    {
-                        //Trying to get savegame path using windows dialog.
-                        saveGamePath = FileService.ImportSave();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                        MessageBox.Show(ResourceServices.GetString("UnableToLoadSavegameLoadError"));
-                    }
-                    //If user didn't select path - return.
-                    if (saveGamePath == null)
-                        return;
-                    
-                    if (saveGamePath.Trim().Length == 0 || !File.Exists(saveGamePath))
-                    {
-                        MessageBox.Show(ResourceServices.GetString("UnableToLoadSavegameWrongPath"));
-                        return;
-                    }
-                    ClearWorkSpace();
-                    LeftInfoLine = ResourceServices.GetString("LoadingSaveGame");
-                    Task.Run(() => LoadSaveGame(saveGamePath)); //.ContinueWith(a=>LoadScripts());
-                }, a => true);
+                await Task.Run(() => SaveDatWriter.Save(saveGame, progress: progress));
+                _modifiedCount = 0;
+                NotifyModifiedChanged();
+                SetDynamicInfo("SavedSucessfully", setToPath: true);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+                LeftInfoLine = saveGame.FilePath;
+                MessageBox.Show(ResourceServices.GetString("UnableToSaveSavegame") + "\n" + ex.Message);
+            }
+            finally
+            {
+                IsBusy = false;
+                ProgressValue = 0;
             }
         }
 
-
-        public RelayCommand SaveCommand
+        private async Task ExecuteSaveAsAsync()
         {
-            get
+            var saveGame = _openedSaveGame;
+            if (saveGame == null) return;
+
+            string? path = FileService.ExportSave();
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            IsBusy = true;
+            ProgressValue = 0;
+            LeftInfoLine = ResourceServices.GetString("SavingSaveGame");
+            var progress = new Progress<double>(p => ProgressValue = p * 100.0);
+
+            try
             {
-                return new RelayCommand(obj =>
-                {
-                    try
-                    {
-                        if (Options.KeepBackups)
-                            BackupService.MakeBackup(_openedSaveGame.Value.FilePath);
-                        
-                        WriteVariablesToFile(_openedSaveGame.Value.FilePath);
-                        SetDynamicInfo("SavedSucessfully");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                        MessageBox.Show(ResourceServices.GetString("UnableToSaveSavegame"));
-                    }
-                }, a=> IsSaveModified);
+                await Task.Run(() => SaveDatWriter.Save(saveGame, destinationPath: path, progress: progress));
+                SetDynamicInfo("SavedSucessfully", setToPath: true);
+            }
+            catch (IOException ex) when (ex.HResult == -2147024864)
+            {
+                Logger.Error(ex);
+                LeftInfoLine = saveGame.FilePath;
+                MessageBox.Show(ResourceServices.GetString("UnableToSaveSavegameProcess"));
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+                LeftInfoLine = saveGame.FilePath;
+                MessageBox.Show(ResourceServices.GetString("UnableToSaveSavegame") + "\n" + ex.Message);
+            }
+            finally
+            {
+                IsBusy = false;
+                ProgressValue = 0;
             }
         }
 
-        public RelayCommand SaveAsCommand
+        private void ExecuteClose()
         {
-            get
+            if (CanCloseSave)
+                ClearWorkSpace();
+        }
+
+        private static void ExecuteSettings()
+        {
+            try
             {
-                return new RelayCommand(obj =>
-                {
-                    try
-                    {
-                        string path = FileService.ExportSave();
-                        if (path == null)
-                            return;
-                        try
-                        {
-                            File.Copy(_openedSaveGame.Value.FilePath, path, true);
-                        }
-                        catch (Exception ex)
-                        {
-                            if (ex.HResult == -2147024864)
-                            {
-                                Logger.Error(ex);
-                                MessageBox.Show(ResourceServices.GetString("UnableToSaveSavegameProcess"));
-                            }
-                        }
-                        WriteVariablesToFile(path);
-                        SetDynamicInfo("SavedSucessfully");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                        MessageBox.Show(ResourceServices.GetString("UnableToSaveSavegame"));
-                    }
-                }, a => !IsSaveNull);
+                WindowsService.OpenSettings();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
             }
         }
 
-        public RelayCommand CloseCommand
+        private async Task ExecuteMakeBackupAsync()
         {
-            get
+            var saveGame = _openedSaveGame;
+            if (saveGame == null) return;
+
+            IsBusy = true;
+            try
             {
-                return new RelayCommand(obj =>
-                {
-                    if (CanCloseSave)
-                        ClearWorkSpace();
-                }, a => !IsSaveNull);
+                await Task.Run(() => BackupService.MakeBackup(saveGame.FilePath, Options.MaxBackups));
+                SetDynamicInfo("BackupCreated", setToPath: true);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
+                MessageBox.Show(ResourceServices.GetString("UnableToBackup") + "\n" + ex.Message);
+            }
+            finally
+            {
+                IsBusy = false;
             }
         }
 
-
-        public RelayCommand SettingsCommand
+        private static void ExecuteAbout()
         {
-            get
+            try
             {
-                return new RelayCommand(obj =>
-                {
-                    try
-                    {
-                        WindowsService.OpenSettings();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                    }
-                });
+                WindowsService.OpenAbout();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex);
             }
         }
 
-        public RelayCommand MakeBackupCommand
+        private async Task ExecuteExportVariablesAsync()
         {
-            get
-            {
-                return new RelayCommand(obj =>
-                {
-                    try
-                    {
-                        File.Copy(_openedSaveGame.Value.FilePath, _openedSaveGame.Value.FilePath + ".bak", true);
-                        SetDynamicInfo("BackupCreated");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                        MessageBox.Show(ResourceServices.GetString("UnableToBackup"));
-                    }
-                }, a => !IsSaveNull);
-            }
-        }
+            if (_openedSaveGame == null) return;
 
-        public RelayCommand AboutCommand
-        {
-            get
+            try
             {
-                return new RelayCommand(obj =>
-                {
-                    try
-                    {
-                        System.Diagnostics.Process.Start("https://github.com/AnImperialMan/GothicSaveEditor/blob/master/README.md");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                    }
-                });
-            }
-        }
-        
-        //Not useful command, only for checking ImportScript availability
-        public RelayCommand ApplyScriptCommands => new RelayCommand(obj =>{}, a => !IsSaveNull && Scripts.Count > 0);
+                string? path = FileService.ExportVariables();
+                if (string.IsNullOrWhiteSpace(path))
+                    return;
 
-        public RelayCommand ExportVariablesCommand
-        {
-            get
+                LeftInfoLine = ResourceServices.GetString("ExportingVariables");
+                await Task.Run(() => ExportVariablesTask(path));
+                SetDynamicInfo("VariablesExportedSucessfully", setToPath: true);
+            }
+            catch (Exception ex)
             {
-                return new RelayCommand(obj =>
-                {
-                    try
-                    {
-                        string path = FileService.ExportVariables();
-                        if (path == null)
-                            return;
-                        LeftInfoLine = ResourceServices.GetString("ExportingVariables");
-                        Task.Run(() => ExportVariablesTask(path));
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                        MessageBox.Show(ResourceServices.GetString("UnableToExportVariables"));
-                    }
-                }, a => !IsSaveNull);
+                Logger.Error(ex);
+                MessageBox.Show(ResourceServices.GetString("UnableToExportVariables"));
             }
         }
     }

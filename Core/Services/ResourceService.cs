@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 
 namespace GothicSaveEditor.Core.Services
@@ -9,8 +9,8 @@ namespace GothicSaveEditor.Core.Services
         {
             try
             {
-                var res = Application.Current.FindResource(resourceName);
-                return res == null ? "" : res.ToString();
+                var res = Application.Current?.TryFindResource(resourceName);
+                return res?.ToString() ?? resourceName;
             }
             catch
             {

@@ -1,4 +1,3 @@
-﻿using GothicSaveEditor.Models;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -6,339 +5,317 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using GothicSaveEditor.Core.Primitives;
 using GothicSaveEditor.Core.Readers;
 using GothicSaveEditor.Core.Services;
 using GothicSaveEditor.Core.Utils;
+using GothicSaveEditor.Core.Writers;
+using GothicSaveEditor.Models;
 using NLog;
 
 namespace GothicSaveEditor.ViewModels
 {
-    public partial class MainViewModel : INotifyPropertyChanged
+    public partial class MainViewModel : ObservableObject
     {
-        #region PropertyChanged (for binding)
-        public event PropertyChangedEventHandler PropertyChanged;
-        public void OnPropertyChanged(string prop = "")
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        private IReadOnlyList<GothicVariable> _displayedVariables = Array.Empty<GothicVariable>();
+        public IReadOnlyList<GothicVariable> DisplayedVariables
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
+            get => _displayedVariables;
+            private set => SetProperty(ref _displayedVariables, value);
         }
-        #endregion
-        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
-        
-        public ObservableCollection<GothicVariable> DataGridVariables { get; set; } = new ObservableCollection<GothicVariable>();
-        public ObservableCollection<Script> Scripts { get; set; } = new ObservableCollection<Script>();
+
+        public ObservableCollection<Script> Scripts { get; } = new();
 
         private SaveGame? _openedSaveGame;
+        private int _modifiedCount;
+        private int _dynamicInfoVersion;
 
-        private bool _dynamicInfo;
+        private CancellationTokenSource? _operationCts;
+        private CancellationTokenSource? _searchCts;
 
         private bool IsSaveNull => _openedSaveGame == null;
-        private bool IsSaveModified
+        public bool IsSaveModified => _openedSaveGame != null && _modifiedCount > 0;
+        public int ModifiedCount => _modifiedCount;
+        public string ModifiedInfoLine => _modifiedCount > 0
+            ? string.Format(ResourceServices.GetString("UnsavedChangesFormat"), _modifiedCount)
+            : string.Empty;
+
+        private bool _isBusy;
+        public bool IsBusy
         {
-            get
+            get => _isBusy;
+            private set
             {
-                if (IsSaveNull)
-                    return false;
-                var isChanged = false;
-                Dispatcher.Invoke(() =>
+                if (SetProperty(ref _isBusy, value))
                 {
-                    if (DataGridVariables.Any(t => t.Modified))
-                    {
-                        isChanged = true;
-                    }
-                });
-                return isChanged;
+                    NotifyCommandsCanExecuteChanged();
+                }
             }
         }
 
-        private string _searchLine;
+        private double _progressValue;
+        public double ProgressValue
+        {
+            get => _progressValue;
+            private set => SetProperty(ref _progressValue, value);
+        }
+
+        private string _searchLine = string.Empty;
         public string SearchLine
         {
             get => _searchLine;
             set
             {
-                _searchLine = value;
-                Search();
-                OnPropertyChanged();
+                if (SetProperty(ref _searchLine, value ?? string.Empty))
+                {
+                    _ = DebouncedSearchAsync(_searchLine);
+                }
             }
         }
 
-        private string _leftInfoLine;
+        private string _leftInfoLine = string.Empty;
         public string LeftInfoLine
         {
             get => _leftInfoLine;
-            set
-            {
-                _leftInfoLine = value;
-                OnPropertyChanged();
-            }
+            set => SetProperty(ref _leftInfoLine, value);
         }
 
-        private string _rightInfoLine;
+        private string _rightInfoLine = string.Empty;
         public string RightInfoLine
         {
             get => _rightInfoLine;
-            set
-            {
-                _rightInfoLine = value;
-                OnPropertyChanged();
-            }
+            set => SetProperty(ref _rightInfoLine, value);
         }
-        
+
         public string GseVersion => Options.GseVersion;
 
+        public MainViewModel()
+        {
+            InitializeCommands();
+            _leftInfoLine = ResourceServices.GetString("Ready");
+        }
 
-        bool CanCloseSave =>
-            (!IsSaveModified
-             || MessageBox.Show(ResourceServices.GetString("SavegameWasModified"),
-                 ResourceServices.GetString("Warning"), MessageBoxButton.YesNo, MessageBoxImage.Warning) ==
-             MessageBoxResult.Yes);
+        public bool CanCloseSave =>
+            !IsSaveModified ||
+            MessageBox.Show(
+                ResourceServices.GetString("SavegameWasModified"),
+                ResourceServices.GetString("Warning"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) == MessageBoxResult.Yes;
 
-        #region HelpMethods
-        void ClearWorkSpace()
+        private void SubscribeVariables(IReadOnlyList<GothicVariable> variables)
+        {
+            _modifiedCount = 0;
+            foreach (var v in variables)
+            {
+                if (v.Modified) _modifiedCount++;
+                v.PropertyChanged += OnVariablePropertyChanged;
+            }
+            NotifyModifiedChanged();
+        }
+
+        private void UnsubscribeVariables(IReadOnlyList<GothicVariable>? variables)
+        {
+            if (variables != null)
+            {
+                foreach (var v in variables)
+                    v.PropertyChanged -= OnVariablePropertyChanged;
+            }
+            _modifiedCount = 0;
+            NotifyModifiedChanged();
+        }
+
+        private void NotifyModifiedChanged()
+        {
+            OnPropertyChanged(nameof(IsSaveModified));
+            OnPropertyChanged(nameof(ModifiedCount));
+            OnPropertyChanged(nameof(ModifiedInfoLine));
+            SaveCommand.NotifyCanExecuteChanged();
+        }
+
+        private void OnVariablePropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(GothicVariable.Modified) && sender is GothicVariable v)
+            {
+                _modifiedCount += v.Modified ? 1 : -1;
+                if (_modifiedCount < 0) _modifiedCount = 0;
+                NotifyModifiedChanged();
+            }
+        }
+
+        private void ClearWorkSpace()
         {
             try
             {
-                DataGridVariables.Clear();
+                _searchCts?.Cancel();
+                UnsubscribeVariables(_openedSaveGame?.VariablesList);
+                DisplayedVariables = Array.Empty<GothicVariable>();
                 Scripts.Clear();
                 _openedSaveGame = null;
-                LeftInfoLine = "";
-                RightInfoLine = "";
-                SearchLine = "";
+                LeftInfoLine = ResourceServices.GetString("Ready");
+                RightInfoLine = string.Empty;
+                _searchLine = string.Empty;
+                OnPropertyChanged(nameof(SearchLine));
+                NotifyCommandsCanExecuteChanged();
             }
             catch (Exception ex)
             {
                 Logger.Error(ex);
             }
         }
-
 
         public void UpdateVarCount()
         {
-            var currentVarCount = DataGridVariables.Count;
-            var totalVarCount = _openedSaveGame.HasValue ? _openedSaveGame.Value.VariablesList.Count : 0;
-            RightInfoLine = $"{currentVarCount}/{totalVarCount}";
-        }
-        
-        private void SetDynamicInfo(string text, bool setToPath=false)
-        {
-            if (_dynamicInfo)
+            if (_openedSaveGame == null)
+            {
+                RightInfoLine = string.Empty;
                 return;
-            _dynamicInfo = true;
-            string backup = "";
-            if (setToPath && !IsSaveNull)
-            {
-                backup = _openedSaveGame.Value.FilePath;
             }
-            else
-            {
-                backup = LeftInfoLine;
-            }
-            LeftInfoLine = ResourceServices.GetString(text);
-            Task.Delay(Options.InfoLinePopUpTime).ContinueWith(t => ResetDynamicInfo(backup));
+
+            int currentVarCount = DisplayedVariables.Count;
+            int totalVarCount = _openedSaveGame.VariablesList.Count;
+            string countStr = currentVarCount == totalVarCount
+                ? $"{totalVarCount:N0}"
+                : $"{currentVarCount:N0} / {totalVarCount:N0}";
+            RightInfoLine = string.Format(ResourceServices.GetString("VariablesCountFormat"), countStr);
         }
 
-        private void ResetDynamicInfo(string toText)
+        private async void SetDynamicInfo(string resourceKey, bool setToPath = false)
         {
-            LeftInfoLine = toText;
-            _dynamicInfo = false;
-        }
-        #endregion
+            int version = ++_dynamicInfoVersion;
+            string restoreText = setToPath && _openedSaveGame != null
+                ? _openedSaveGame.FilePath
+                : LeftInfoLine;
 
-        private void ExportVariablesTask(string path)
-        {
-            var writeText = new StringBuilder();
-            foreach (var variable in _openedSaveGame.Value.VariablesList)
+            LeftInfoLine = ResourceServices.GetString(resourceKey);
+            await Task.Delay(Options.InfoLinePopUpTime);
+
+            if (_dynamicInfoVersion == version)
             {
-                writeText.AppendLine(variable.FullName + " = " + variable.Value);
+                LeftInfoLine = restoreText;
             }
-            File.WriteAllText(path, writeText.ToString());
-            SetDynamicInfo("VariablesExportedSucessfully", true);
         }
 
-        private void ImportVariables(Script script)
+        public async Task LoadSaveGameAsync(string saveGamePath)
         {
+            _operationCts?.Cancel();
+            _operationCts = new CancellationTokenSource();
+            var ct = _operationCts.Token;
+
+            IsBusy = true;
+            ProgressValue = 0;
+            LeftInfoLine = ResourceServices.GetString("LoadingSaveGame");
+
+            var progress = new Progress<double>(p => ProgressValue = p * 100.0);
+
             try
             {
-                LeftInfoLine = ResourceServices.GetString("ImportingVariables");
-                var changesList = new StringBuilder();
-                var notFoundVariables = new StringBuilder();
-                var fastVariables = new Dictionary<string, GothicVariable>();
-                foreach(var variable in _openedSaveGame.Value.VariablesList)
-                {
-                    fastVariables[variable.FullName.ToLower()] = variable;
-                }
-                foreach (var item in script.actions)
-                {   
-                    if (fastVariables.ContainsKey(item.Key.ToLower()))
-                    {
-                        fastVariables[item.Key.ToLower()].Value = item.Value;
-                        changesList.AppendLine("\n" + item.Key + " -> " + item.Value);
-                    }
-                    else
-                    {
-                        notFoundVariables.AppendLine(item.Key);
-                    }
-                }
+                var encoding = EncodingHelper.GetEncoding(Options.CodePage);
+                var saveGame = await Task.Run(() => BinSafeReader.ReadSaveGame(saveGamePath, encoding, progress, ct), ct);
 
-                Dispatcher.Invoke(new Action(() =>
-                {
-                    DataGridVariables.Clear();
-                    foreach (var p in _openedSaveGame.Value.VariablesList)
-                        DataGridVariables.Add(p);
-                }));
-                SearchLine = "";
-                if (changesList.Length != 0)
-                {
-                    MessageBox.Show(ResourceServices.GetString("VariablesWereImported") + "\n\n" + ResourceServices.GetString("ScriptActionList") + changesList);
-                }
-                else
-                {
-                    MessageBox.Show(ResourceServices.GetString("VariablesWereNotImported"));
-                }
-                if (notFoundVariables.Length > 0)
-                {
-                    MessageBox.Show(ResourceServices.GetString("NotFoundVariables") + notFoundVariables);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex);
-                MessageBox.Show(ResourceServices.GetString("UnableToImportVariables"));
-            }
-            finally
-            {
-                LeftInfoLine = _openedSaveGame.Value.FilePath;
-            }
-        }
+                UnsubscribeVariables(_openedSaveGame?.VariablesList);
+                _openedSaveGame = saveGame;
+                SubscribeVariables(saveGame.VariablesList);
 
-        private void LoadScripts()
-        {
-            try
-            {
-                if (!Directory.Exists(Environment.CurrentDirectory + Options.ScriptsDirectory))
-                {
-                    Directory.CreateDirectory(Environment.CurrentDirectory + Options.ScriptsDirectory);
-                    return;
-                }
-                string[] dirs = Directory.GetFiles(Environment.CurrentDirectory + Options.ScriptsDirectory, "*.gses");
-                if (dirs.Length == 0)
-                {
-                    return;
-                }
-                Dispatcher.Invoke(new Action(() =>
-                {
-                    Scripts.Clear();
-                }));
-                foreach (var dir in dirs)
-                {
-                    //This try made to prevent stopping loading scripts if one script crashed
-                    try
-                    {
-                        string[] lines = File.ReadAllLines(dir);
-                        if (lines.Length == 0 || lines.Length > 250)
-                            continue;
-                        var nameVal = new Dictionary<string, int>();
-                        foreach (var line in lines)
-                        {
-                            if (string.IsNullOrWhiteSpace(line))
-                                continue;
-                            int number = line.IndexOf("=");
-                            if (number < 1)
-                                continue;
-                            string varName = line.Substring(0, number).Replace(" ", "");
-                            string value = line.Substring(number + 1).Replace(" ", "");
-                            int varValue = int.Parse(value);
-                            nameVal[varName] = varValue;
-                        }
-                        Dispatcher.Invoke(new Action(() =>
-                        {
-                            Scripts.Add(new Script(Path.GetFileNameWithoutExtension(dir), nameVal, ImportVariables));
-                        }));
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex);
-                MessageBox.Show(ResourceServices.GetString("UnableToLoadScripts"));
-            }
-        }
+                _searchLine = string.Empty;
+                OnPropertyChanged(nameof(SearchLine));
+                DisplayedVariables = saveGame.VariablesList;
 
-        public void LoadSaveGame(string saveGamePath)
-        {
-            //Path is always not null here!
-            try
-            {
-                var tempVariables = SaveDatReader.Read(saveGamePath);
-                if (tempVariables == null)
-                    return;
-                _openedSaveGame = new SaveGame(saveGamePath, tempVariables);
-
-                Dispatcher.Invoke(() =>
-                {
-                    foreach (var p in _openedSaveGame.Value.VariablesList)
-                        DataGridVariables.Add(p);
-                });
-                LeftInfoLine = _openedSaveGame.Value.FilePath;
+                LeftInfoLine = saveGame.FilePath;
                 UpdateVarCount();
+                NotifyCommandsCanExecuteChanged();
+            }
+            catch (OperationCanceledException)
+            {
+                ClearWorkSpace();
             }
             catch (Exception ex)
             {
                 Logger.Error(ex);
                 SetDynamicInfo("UnableToLoadSavegame");
-                MessageBox.Show(ResourceServices.GetString("SaveIsBrokenText") + "\n" +  ResourceServices.GetString(ex.Message));
+                MessageBox.Show(ResourceServices.GetString("SaveIsBrokenText") + "\n" + ex.Message);
+            }
+            finally
+            {
+                IsBusy = false;
+                ProgressValue = 0;
             }
         }
 
-        private void WriteVariablesToFile(string path)
+        private async Task DebouncedSearchAsync(string query)
         {
-            if (IsSaveNull)
+            _searchCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _searchCts = cts;
+            var ct = cts.Token;
+
+            var saveGame = _openedSaveGame;
+            if (saveGame == null)
                 return;
-            
-            // No try here. It's handled before.
-            Dispatcher.Invoke(() =>
-            {
-                var fstr = new FileStream(path, FileMode.Open, FileAccess.Write);
-                var w = new BinaryWriter(fstr);
-                foreach (var t in DataGridVariables.Where(t => t.Modified))
-                {
-                    w.Seek(t.Position, 0);
-                    w.Write(t.Value);
-                    t.SetUnModified();
-                }
-                w.Close();
-                fstr.Close();
-            });
-        }
-        
-        private void Search()
-        {
-            if (IsSaveNull)
-                return;
+
             try
             {
-                var variables = _openedSaveGame.Value.VariablesList.Search(SearchLine);
-                Dispatcher.Invoke(() =>
+                await Task.Delay(250, ct);
+
+                IReadOnlyList<GothicVariable> result;
+                if (string.IsNullOrWhiteSpace(query))
                 {
-                    DataGridVariables.Clear();
-                    foreach (var p in variables)
-                        DataGridVariables.Add(p);
-                });
+                    result = saveGame.VariablesList;
+                }
+                else
+                {
+                    string trimmed = query.Trim();
+                    result = await Task.Run(() =>
+                    {
+                        var all = saveGame.VariablesList;
+                        var matches = new List<GothicVariable>(Math.Min(all.Count, 1024));
+                        for (int i = 0; i < all.Count; i++)
+                        {
+                            if ((i & 1023) == 0)
+                                ct.ThrowIfCancellationRequested();
+
+                            var item = all[i];
+                            if (item.FullName.Contains(trimmed, StringComparison.OrdinalIgnoreCase))
+                                matches.Add(item);
+                        }
+                        return (IReadOnlyList<GothicVariable>)matches;
+                    }, ct);
+                }
+
+                ct.ThrowIfCancellationRequested();
+                DisplayedVariables = result;
                 UpdateVarCount();
+            }
+            catch (OperationCanceledException)
+            {
+                // Superseded by newer search keystroke
             }
             catch (Exception ex)
             {
                 Logger.Error(ex);
                 MessageBox.Show(ResourceServices.GetString("UnableToSearch"));
             }
+        }
+
+        private void ExportVariablesTask(string path)
+        {
+            var saveGame = _openedSaveGame;
+            if (saveGame == null) return;
+
+            var encoding = EncodingHelper.GetEncoding(Options.CodePage);
+            var writeText = new StringBuilder(saveGame.VariablesList.Count * 32);
+            foreach (var variable in saveGame.VariablesList)
+            {
+                writeText.Append(variable.FullName).Append(" = ").AppendLine(variable.Value.ToString());
+            }
+            File.WriteAllText(path, writeText.ToString(), encoding);
         }
     }
 }

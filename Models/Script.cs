@@ -1,33 +1,24 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using GothicSaveEditor.Core.Primitives;
+using CommunityToolkit.Mvvm.Input;
 
 namespace GothicSaveEditor.Models
 {
     public class Script
     {
         public string Name { get; set; }
-        public Dictionary<string, int> actions = new Dictionary<string, int>();
-        private readonly Action<Script> executeVoid;
+        public Dictionary<string, int> actions = new();
+        private readonly Action<Script> _executeVoid;
 
-        public RelayCommand ImportScriptCommand
-        {
-            get
-            {
-                return new RelayCommand(obj =>
-                {
-                    Task.Run(() => executeVoid(this));
-                });
-            }
-        }
-
+        public IRelayCommand ImportScriptCommand { get; }
 
         public Script(string name, Dictionary<string, int> actions, Action<Script> executeVoid)
         {
             Name = name;
             this.actions = actions;
-            this.executeVoid = executeVoid;
+            _executeVoid = executeVoid;
+            ImportScriptCommand = new RelayCommand(() => Task.Run(() => _executeVoid(this)));
         }
     }
 }

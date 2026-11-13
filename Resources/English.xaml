@@ -1,10 +1,34 @@
-﻿<ResourceDictionary 
+<ResourceDictionary 
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" 
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" 
     xmlns:system="clr-namespace:System;assembly=mscorlib">
 
     <!-- Main window -->
-    <system:String x:Key="GSETitle">Gothic Savegame Editor</system:String>
+    <system:String x:Key="GSETitle">GothicSaveEditor Redux</system:String>
+
+    <system:String x:Key="ToolbarOpen">Open</system:String>
+    <system:String x:Key="ToolbarSave">Save</system:String>
+    <system:String x:Key="ToolbarSaveAs">Save As</system:String>
+    <system:String x:Key="ToolbarBackup">Backup</system:String>
+    <system:String x:Key="ToolbarExport">Export</system:String>
+    <system:String x:Key="ToolbarClose">Close</system:String>
+    <system:String x:Key="ToolbarSettings">Settings</system:String>
+    <system:String x:Key="ToolbarAbout">About</system:String>
+
+    <system:String x:Key="Ready">Ready — open a SAVEDAT.SAV file</system:String>
+    <system:String x:Key="UnsavedChangesFormat">{0} unsaved change(s)</system:String>
+    <system:String x:Key="VariablesCountFormat">Variables: {0}</system:String>
+
+    <system:String x:Key="SettingsSectionGame">Game Directory</system:String>
+    <system:String x:Key="SettingsSectionLocalization">Language &amp; Encoding</system:String>
+    <system:String x:Key="SettingsSectionAppearance">Appearance &amp; Integration</system:String>
+    <system:String x:Key="SettingsSectionBackups">Automatic Backups</system:String>
+
+    <system:String x:Key="AboutTitle">About GothicSaveEditor Redux</system:String>
+    <system:String x:Key="AboutDescription">Modern, high-performance savegame editor for Gothic 1, Gothic 2 (NotR), and large mods such as Odyssee (.NET 10).</system:String>
+    <system:String x:Key="AboutFeatures">• Structured BinSafe parser (thread-safe, no array or overflow bugs)&#x0a;• Atomic saving with SHA-256 integrity verification&#x0a;• Automatic folder backups with rotation in %LOCALAPPDATA%&#x0a;• Responsive search &amp; UI virtualization even with 100,000+ variables</system:String>
+    <system:String x:Key="AboutCredits">Based on the original GothicSaveEditor fork by Flycrafting (originally created by RightMAN).</system:String>
+    <system:String x:Key="AboutClose">Close</system:String>
     
     <system:String x:Key="Savegame">Savegame</system:String>
     <system:String x:Key="Open">Open(Ctrl+A)</system:String>
@@ -23,12 +47,20 @@
 
     <system:String x:Key="Variable">Variable</system:String>
     <system:String x:Key="Value">Value</system:String>
+    <system:String x:Key="Search">Search variables...</system:String>
+    <system:String x:Key="Cancel">Cancel</system:String>
 
 
     <!-- Settings window -->
     <system:String x:Key="SettingsWindow">Settings</system:String>
     <system:String x:Key="GothicPath">Path to the Gothic Folder</system:String>
     <system:String x:Key="Language">Language</system:String>
+    <system:String x:Key="Encoding">Savegame Encoding</system:String>
+    <system:String x:Key="Encoding1252">Windows-1252 (Western / German / English)</system:String>
+    <system:String x:Key="Encoding1250">Windows-1250 (Central European / Polish)</system:String>
+    <system:String x:Key="Encoding1251">Windows-1251 (Cyrillic / Russian)</system:String>
+    <system:String x:Key="DarkMode">Dark Mode</system:String>
+    <system:String x:Key="AssociateSavFiles">Associate .SAV files with GothicSaveEditor</system:String>
     <system:String x:Key="KeepBackups">Create and keep backups of Savegames</system:String>
     <system:String x:Key="OpenBackupsFolder">Open backups folder</system:String>
     <system:String x:Key="DeleteBackups">Delete all backups</system:String>
@@ -39,6 +71,7 @@
 
     <!-- Message boxes -->
     <system:String x:Key="Warning">Warning</system:String>
+    <system:String x:Key="UnexpectedError">An unexpected error occurred:</system:String>
 
 
     
@@ -81,6 +114,7 @@
 
     <!--  Info lines states  -->
     <system:String x:Key="LoadingSaveGame">Loading savegame...</system:String>
+    <system:String x:Key="SavingSaveGame">Saving savegame...</system:String>
     <system:String x:Key="ImportingVariables">Importing variables...</system:String>
     <system:String x:Key="ExportingVariables">Exporting variables...</system:String>
     <system:String x:Key="BackupCreated">Backup was sucessfully created! </system:String>

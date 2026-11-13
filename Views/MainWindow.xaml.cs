@@ -1,5 +1,7 @@
-﻿using System;
-using GothicSaveEditor.Core.Services;
+using System;
+using System.ComponentModel;
+using System.IO;
+using System.Windows;
 using GothicSaveEditor.ViewModels;
 
 namespace GothicSaveEditor.Views
@@ -9,25 +11,39 @@ namespace GothicSaveEditor.Views
     /// </summary>
     public partial class MainWindow
     {
+        private readonly MainViewModel _viewModel;
+        private bool _startupFileHandled;
+
         public MainWindow()
         {
             InitializeComponent();
-            
-            var viewModelLogic = new MainViewModel();
-            DataContext = viewModelLogic;
-            
-            // Open with program handling
+            _viewModel = new MainViewModel();
+            DataContext = _viewModel;
+
+            Loaded += MainWindow_Loaded;
+            Closing += MainWindow_Closing;
+        }
+
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (_startupFileHandled) return;
+            _startupFileHandled = true;
+
             var args = Environment.GetCommandLineArgs();
             if (args.Length >= 2)
             {
                 var path = args[1];
-                if (path.EndsWith("SAVEDAT.SAV"))
+                if (path.EndsWith("SAVEDAT.SAV", StringComparison.OrdinalIgnoreCase) && File.Exists(path))
                 {
-                    viewModelLogic.LoadSaveGame(path);
+                    await _viewModel.LoadSaveGameAsync(path);
                 }
             }
-            
-            AssociationService.EnsureAssociationsSet();
+        }
+
+        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            if (!_viewModel.CanCloseSave)
+                e.Cancel = true;
         }
     }
 }

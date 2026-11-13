@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using Microsoft.Win32;
 
@@ -6,10 +6,10 @@ namespace GothicSaveEditor.Core.Services
 {
     public class FileAssociation
     {
-        public string Extension { get; set; }
-        public string ProgId { get; set; }
-        public string FileTypeDescription { get; set; }
-        public string ExecutableFilePath { get; set; }
+        public string Extension { get; set; } = string.Empty;
+        public string ProgId { get; set; } = string.Empty;
+        public string FileTypeDescription { get; set; } = string.Empty;
+        public string ExecutableFilePath { get; set; } = string.Empty;
     }
 
     public static class AssociationService

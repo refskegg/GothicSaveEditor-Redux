@@ -1,0 +1,64 @@
+<div align="center">
+
+# GothicSaveEditor Redux v1.0.0
+
+**Современный высокопроизводительный редактор сохранений для Gothic 1, Gothic 2 (Ночь Ворона) и крупных модификаций, таких как Odyssee.**
+
+[![English](https://img.shields.io/badge/Language-English-4B5563?style=for-the-badge)](README.md)
+[![Deutsch](https://img.shields.io/badge/Sprache-Deutsch-4B5563?style=for-the-badge)](README_DE.md)
+[![Русский](https://img.shields.io/badge/Язык-Русский-2563EB?style=for-the-badge)](README_RU.md)
+
+</div>
+
+---
+
+## Основные возможности
+
+- **Структурный парсер `BinSafeReader` (.NET 10 / AnyCPU 64-bit)**
+  - Потокобезопасный парсер формата ZenGin `BIN_SAFE` (`SAVEDAT.SAV`) на базе `ReadOnlySpan<byte>` с полной проверкой границ.
+  - Исправляет ошибки индексации массивов, некорректный разбор заголовка и падения с `OverflowException` на крупных модах (например, Odyssee с 40 000–100 000+ переменных).
+  - Естественная сортировка без лишних аллокаций (`VariablesComparer`), поддерживающая числа любой длины.
+- **Атомарное сохранение с проверкой целостности (`SaveDatWriter`)**
+  - Записывает только изменённые целочисленные значения во временный файл `.tmp` с вызовом `Flush(true)` и атомарно заменяет целевой файл через `File.Replace`.
+  - Проверяет размер файла и хеш SHA-256 перед сохранением для защиты от внешних изменений на диске.
+- **Автоматическое резервное копирование папок (`BackupService`)**
+  - Перед каждым сохранением копирует всю папку слота `savegameN` в `%LOCALAPPDATA%\GothicSaveEditor\Backups\<Mod>\<Slot>_<Timestamp>\` с автоматической ротацией.
+  - Отменяет сохранение при ошибке создания резервной копии, чтобы не повредить оригинальное сохранение.
+- **Современный и отзывчивый интерфейс WPF**
+  - Оформление MaterialDesign 3 с **тёмной темой** (по умолчанию) и **светлой темой**.
+  - Поддержка `PerMonitorV2` HiDPI и шрифт `Segoe UI Variable` для чёткого отображения на экранах с высоким разрешением.
+  - Асинхронная загрузка и сохранение с индикатором прогресса и отменой, фоновый поиск с задержкой 250 мс и виртуализация строк `DataGrid`.
+- **Мультиязычность и кодировки**
+  - Полная локализация интерфейса на **английском**, **немецком** и **русском** языках.
+  - Выбор кодировки сохранений: **Windows-1252** (западноевропейская / DE / EN), **Windows-1250** (центральноевропейская / PL) и **Windows-1251** (кириллица / RU).
+
+---
+
+## Требования и сборка
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/) (Windows)
+
+```bash
+# Сборка решения
+dotnet build GothicSaveEditor.sln
+
+# Запуск модульных и roundtrip-тестов
+dotnet test GothicSaveEditor.sln
+
+# Запуск приложения
+dotnet run --project GothicSaveEditor.csproj
+```
+
+---
+
+## Структура проекта
+
+- `GothicSaveEditor` — настольное приложение WPF (`net10.0-windows`, `CommunityToolkit.Mvvm`, `MaterialDesignThemes` 5.x, `NLog` 5.x)
+- `GothicSaveEditor.Core` — платформонезависимая библиотека ядра (`BinSafeReader`, `SaveDatWriter`, `BackupService`, `VariablesComparer`, `EncodingHelper`)
+- `GothicSaveEditor.Tests` — набор тестов xUnit (сравнение со снимком, roundtrip SHA-256, фаззинг, ротация бэкапов, тесты кодировок)
+
+---
+
+## Благодарности
+
+Проект основан на оригинальном форке **GothicSaveEditor** от **Flycrafting** (оригинальный автор — **RightMAN**).

@@ -1,31 +1,51 @@
-﻿using System;
+using System;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms;
-using System.Windows.Input;
-using System.Windows.Interop;
 
 namespace GothicSaveEditor.Styles
 {
     public partial class WindowStyle
     {
+        private const int MonitorDefaultToNearest = 2;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left, Top, Right, Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public int dwFlags;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int dwFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
 
         void WindowLoaded(object sender, RoutedEventArgs e)
         {
             ((Window)sender).StateChanged += WindowStateChanged;
         }
 
-        void WindowStateChanged(object sender, EventArgs e)
+        void WindowStateChanged(object? sender, EventArgs e)
         {
-            var w = ((Window)sender);
+            if (sender is not Window w) return;
             var handle = w.GetWindowHandle();
-            var containerBorder = (Border)w.Template.FindName("MainBorder", w);
+            if (w.Template?.FindName("MainBorder", w) is not Border containerBorder) return;
 
             if (w.WindowState == WindowState.Maximized)
             {
-                // Make sure window doesn't overlap with the taskbar.
-                var screen = Screen.FromHandle(handle);
-                if (screen.Primary)
+                var monitor = MonitorFromWindow(handle, MonitorDefaultToNearest);
+                var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+                if (GetMonitorInfo(monitor, ref info) && (info.dwFlags & 1) != 0)
                 {
                     containerBorder.Padding = new Thickness(
                         SystemParameters.WorkArea.Left + 7,
@@ -58,6 +78,5 @@ namespace GothicSaveEditor.Styles
                 else SystemCommands.MaximizeWindow(w);
             });
         }
-
     }
 }

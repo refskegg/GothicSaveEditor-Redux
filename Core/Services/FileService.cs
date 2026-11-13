@@ -1,33 +1,31 @@
-﻿using FolderBrowserDialog =  System.Windows.Forms;
-using Microsoft.Win32;
-using System.IO;
 using System;
+using System.IO;
 using GothicSaveEditor.Core.Utils;
+using Microsoft.Win32;
 
 namespace GothicSaveEditor.Core.Services
 {
     public static class FileService
     {
-        private const string FileName = "SAVEDAT"; //FileName
-        private const string DefaultExt = "SAVEDAT"; //File Extensinon
-        private const string Filter = "Gothic Savegames|SAVEDAT.SAV"; //Filter by gothic savegames
+        private const string FileName = "SAVEDAT";
+        private const string DefaultExt = "SAVEDAT";
+        private const string Filter = "Gothic Savegames|SAVEDAT.SAV";
 
-        public static string PickGothicFolder()
+        public static string? PickGothicFolder()
         {
-            var openFolderDialog = new FolderBrowserDialog.FolderBrowserDialog();
-
-            if (openFolderDialog.ShowDialog() == FolderBrowserDialog.DialogResult.OK)
+            var dialog = new OpenFolderDialog
             {
-                return openFolderDialog.SelectedPath;
-            }
-            return null;
+                InitialDirectory = Directory.Exists(Options.GamePath) ? Options.GamePath : null
+            };
+
+            return dialog.ShowDialog() == true ? dialog.FolderName : null;
         }
 
-        public static string ImportSave()
+        public static string? ImportSave()
         {
             var openFileDialog = new OpenFileDialog
             {
-                InitialDirectory = Options.GamePath,
+                InitialDirectory = Directory.Exists(Options.GamePath) ? Options.GamePath : null,
                 FileName = FileName,
                 DefaultExt = DefaultExt,
                 Filter = Filter,
@@ -36,24 +34,20 @@ namespace GothicSaveEditor.Core.Services
             return openFileDialog.ShowDialog() == true ? openFileDialog.FileName : null;
         }
 
-        public static string ExportSave()
+        public static string? ExportSave()
         {
             var saveFileDialog = new SaveFileDialog
             {
-                InitialDirectory = Options.GamePath,
+                InitialDirectory = Directory.Exists(Options.GamePath) ? Options.GamePath : null,
                 FileName = FileName,
                 DefaultExt = DefaultExt,
                 Filter = Filter,
                 RestoreDirectory = true
             };
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                return saveFileDialog.FileName;
-            }
-            return null;
+            return saveFileDialog.ShowDialog() == true ? saveFileDialog.FileName : null;
         }
 
-        public static string ExportVariables()
+        public static string? ExportVariables()
         {
             var saveFileDialog = new SaveFileDialog
             {
@@ -62,11 +56,7 @@ namespace GothicSaveEditor.Core.Services
                 Filter = "Text Files|*.txt",
                 RestoreDirectory = false
             };
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                return saveFileDialog.FileName;
-            }
-            return null;
+            return saveFileDialog.ShowDialog() == true ? saveFileDialog.FileName : null;
         }
     }
 }

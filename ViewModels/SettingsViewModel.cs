@@ -1,33 +1,31 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Threading;
+using System.Linq;
 using System.Windows;
-using GothicSaveEditor.Core.Primitives;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using GothicSaveEditor.Core.Services;
 using GothicSaveEditor.Core.Utils;
-using GothicSaveEditor.Models;
+using NLog;
 
 namespace GothicSaveEditor.ViewModels
 {
-    public class SettingsViewModel : INotifyPropertyChanged
+    public sealed record EncodingOption(int CodePage, string DisplayName);
+
+    public class SettingsViewModel : ObservableObject
     {
-        #region PropertyChanged (for binding)
-        public event PropertyChangedEventHandler PropertyChanged;
-        public void OnPropertyChanged(string prop = "")
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(prop));
-        }
-        #endregion
-        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         public string PathLine
         {
             get => Options.GamePath;
             set
             {
-                Options.GamePath = value;
-                OnPropertyChanged();
+                if (Options.GamePath != value)
+                {
+                    Options.GamePath = value;
+                    OnPropertyChanged();
+                }
             }
         }
 
@@ -36,9 +34,13 @@ namespace GothicSaveEditor.ViewModels
             get => Options.Language;
             set
             {
-                Options.Language = value;
-                App.SetLanguage(value);
-                OnPropertyChanged();
+                if (Options.Language != value)
+                {
+                    Options.Language = value;
+                    App.SetLanguage(value);
+                    RefreshEncodings();
+                    OnPropertyChanged();
+                }
             }
         }
 
@@ -47,8 +49,53 @@ namespace GothicSaveEditor.ViewModels
             get => Options.KeepBackups;
             set
             {
-                Options.KeepBackups = value;
-                OnPropertyChanged();
+                if (Options.KeepBackups != value)
+                {
+                    Options.KeepBackups = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool DarkMode
+        {
+            get => Options.DarkMode;
+            set
+            {
+                if (Options.DarkMode != value)
+                {
+                    Options.DarkMode = value;
+                    App.SetTheme(value);
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public bool AssociateSavFiles
+        {
+            get => Options.AssociateSavFiles;
+            set
+            {
+                if (Options.AssociateSavFiles != value)
+                {
+                    Options.AssociateSavFiles = value;
+                    if (value)
+                        AssociationService.EnsureAssociationsSet();
+                    OnPropertyChanged();
+                }
+            }
+        }
+
+        public EncodingOption SelectedEncoding
+        {
+            get => Encodings.FirstOrDefault(e => e.CodePage == Options.CodePage) ?? Encodings[0];
+            set
+            {
+                if (value != null && Options.CodePage != value.CodePage)
+                {
+                    Options.CodePage = value.CodePage;
+                    OnPropertyChanged();
+                }
             }
         }
 
@@ -60,83 +107,85 @@ namespace GothicSaveEditor.ViewModels
                 if (backupCount == 0)
                     return "";
                 var backupsSize = BackupService.BackupsSize;
-                return $"  {backupCount} ({backupsSize} mb)  ";
+                return $"  {backupCount} ({backupsSize} MB)  ";
             }
         }
 
-        public ObservableCollection<string> Languages { get; set; } = new ObservableCollection<string> { "English", "Русский" };
+        public ObservableCollection<string> Languages { get; } = new() { "Deutsch", "English", "Русский" };
+
+        public ObservableCollection<EncodingOption> Encodings { get; } = new();
+
+        private void RefreshEncodings()
+        {
+            int currentCp = Options.CodePage;
+            Encodings.Clear();
+            Encodings.Add(new EncodingOption(1252, ResourceServices.GetString("Encoding1252")));
+            Encodings.Add(new EncodingOption(1250, ResourceServices.GetString("Encoding1250")));
+            Encodings.Add(new EncodingOption(1251, ResourceServices.GetString("Encoding1251")));
+            OnPropertyChanged(nameof(SelectedEncoding));
+            _ = currentCp;
+        }
+
         private readonly SettingsWindow _settingsWindow;
+
+        public IRelayCommand SelectFolderCommand { get; }
+        public IRelayCommand CloseWindowCommand { get; }
+        public IRelayCommand OpenBackupsFolderCommand { get; }
+        public IRelayCommand DeleteBackupsCommand { get; }
 
         public SettingsViewModel(SettingsWindow settingsWindow)
         {
             _settingsWindow = settingsWindow;
-        }
+            RefreshEncodings();
 
-        public RelayCommand SelectFolderCommand
-        {
-            get
+            SelectFolderCommand = new RelayCommand(() =>
             {
-                return new RelayCommand(obj =>
+                try
                 {
-                    try
-                    {
-                        var path = FileService.PickGothicFolder();
-                        if (path == null)
-                            return;
+                    var path = FileService.PickGothicFolder();
+                    if (path != null)
                         PathLine = path;
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error(ex);
-                        MessageBox.Show(ResourceServices.GetString("UnableToSelectGameFolder"));
-                    }
-                });
-            }
-        }
-
-        public RelayCommand CloseWindowCommand
-        {
-            get
-            {
-                return new RelayCommand(obj =>
+                }
+                catch (Exception ex)
                 {
-                    _settingsWindow.Close();
-                });
-            }
-        }
+                    Logger.Error(ex);
+                    MessageBox.Show(ResourceServices.GetString("UnableToSelectGameFolder"));
+                }
+            });
 
-        public RelayCommand OpenBackupsFolderCommand
-        {
-            get
+            CloseWindowCommand = new RelayCommand(() => _settingsWindow.Close());
+
+            OpenBackupsFolderCommand = new RelayCommand(() =>
             {
-                return new RelayCommand(obj =>
+                try
                 {
                     BackupService.OpenBackupsFolder();
-                });
-            }
-        }
-
-        public RelayCommand DeleteBackupsCommand
-        {
-            get
-            {
-                return new RelayCommand(obj =>
+                }
+                catch (Exception ex)
                 {
-                    if (MessageBox.Show(ResourceServices.GetString("AgreeBackupsDeleting"),
-                            ResourceServices.GetString("Warning"), MessageBoxButton.YesNo, MessageBoxImage.Warning) ==
-                        MessageBoxResult.Yes)
+                    Logger.Error(ex);
+                }
+            });
+
+            DeleteBackupsCommand = new RelayCommand(() =>
+            {
+                if (MessageBox.Show(
+                        ResourceServices.GetString("AgreeBackupsDeleting"),
+                        ResourceServices.GetString("Warning"),
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                {
+                    if (!BackupService.DeleteAll())
                     {
-                        if (!BackupService.DeleteAll())
-                        {
-                            MessageBox.Show(ResourceServices.GetString("CouldNotDeleteBackups"));
-                        }
-                        else
-                        {
-                            OnPropertyChanged(BackupsInfo);
-                        }
+                        MessageBox.Show(ResourceServices.GetString("CouldNotDeleteBackups"));
                     }
-                }, b => BackupService.BackupsCount > 0);
-            }
+                    else
+                    {
+                        OnPropertyChanged(nameof(BackupsInfo));
+                        DeleteBackupsCommand?.NotifyCanExecuteChanged();
+                    }
+                }
+            }, () => BackupService.BackupsCount > 0);
         }
     }
 }

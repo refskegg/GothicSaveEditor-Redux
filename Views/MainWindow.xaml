@@ -1,20 +1,34 @@
-﻿<Window
+<Window
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         x:Class="GothicSaveEditor.Views.MainWindow"
         mc:Ignorable="d"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
         Style="{DynamicResource WindowStyle}"
-        Background="{DynamicResource MaterialDesignBackground}"
+        Background="{DynamicResource MaterialDesignPaper}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
-        TextElement.FontWeight="Medium"
+        TextElement.FontWeight="Regular"
         TextElement.FontSize="14"
-        FontFamily="pack://application:,,,/MaterialDesignThemes.Wpf;component/Resources/Roboto/#Roboto"
+        FontFamily="Segoe UI Variable, Segoe UI"
         Tag="{Binding GseVersion}"
-        Height="460" MinHeight="460" Width="560" MinWidth="560">
+        Height="640" MinHeight="500" Width="960" MinWidth="900">
 
-
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <Style x:Key="ToolbarButtonStyle" TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatButton}">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,2,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+    </Window.Resources>
 
     <Window.InputBindings>
         <KeyBinding Command="{Binding OpenCommand}" Gesture="Ctrl+A"/>
@@ -22,82 +36,265 @@
         <KeyBinding Command="{Binding SaveAsCommand}" Gesture="Ctrl+Shift+S"/>
         <KeyBinding Command="{Binding MakeBackupCommand}" Gesture="Ctrl+B"/>
         <KeyBinding Command="{Binding CloseCommand}" Gesture="Ctrl+X"/>
-        <KeyBinding Command="{Binding SearchCommand}" Key="Enter"/>
     </Window.InputBindings>
 
-
-    <Grid Margin="10,5,10,5">
+    <Grid Margin="14,8,14,12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid Grid.Row="0">
-            <Menu Height="Auto" Width="Auto" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                <MenuItem Header="{DynamicResource Savegame}">
-                    <MenuItem Header="{DynamicResource Open}" Command="{Binding OpenCommand}"/>
-                    <MenuItem Header="{DynamicResource Save}" Command="{Binding SaveCommand}"/>
-                    <MenuItem Header="{DynamicResource SaveAs}" Command="{Binding SaveAsCommand}"/>
-                    <MenuItem Header="{DynamicResource MakeBackup}" Command="{Binding MakeBackupCommand}"/>
-                    <Separator />
-                    <MenuItem Header="{DynamicResource Close}" Command="{Binding CloseCommand}" />
-                </MenuItem>
-                <!--<MenuItem Header="{DynamicResource Tools}" Command="{Binding SettingsCommand}" Background="Transparent">
-                    <MenuItem Header="{DynamicResource ApplyScript}" ItemsSource="{Binding Scripts, Mode=OneWay}" IsEnabled="{Binding Scripts.Count, Mode=OneWay}">
-                        <MenuItem.ItemContainerStyle>
-                            <Style TargetType="{x:Type MenuItem}">
-                                <Setter Property="Header" Value="{Binding Name}" />
-                                <Setter Property="Command" Value="{Binding ImportScriptCommand}" />
-                            </Style>
-                        </MenuItem.ItemContainerStyle>
-                    </MenuItem>
-                    <MenuItem Header="{DynamicResource ExportVariables}" Command="{Binding ExportVariablesCommand}"/>
-                </MenuItem>-->
-                <MenuItem Header="{DynamicResource Settings}" Command="{Binding SettingsCommand}"/> 
-                <MenuItem Header="{DynamicResource About}" Command="{Binding AboutCommand}"/>
-            </Menu>
-        </Grid>
 
-        <Grid Grid.Row="1" Margin="0 5 0 0">
+        <!-- Modern MaterialDesign 3 Top Toolbar -->
+        <Border Grid.Row="0"
+                CornerRadius="10"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                Padding="8,6"
+                Margin="0,0,0,10">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                    <Button Command="{Binding SettingsCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            ToolTip="{DynamicResource Settings}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ToolbarSettings}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AboutCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Margin="0"
+                            ToolTip="{DynamicResource AboutTitle}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="InformationOutline" Width="18" Height="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ToolbarAbout}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <WrapPanel Orientation="Horizontal">
+                    <Button Command="{Binding OpenCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            ToolTip="{DynamicResource Open}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FolderOpenOutline" Width="18" Height="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ToolbarOpen}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding SaveCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            ToolTip="{DynamicResource Save}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ContentSaveOutline" Width="18" Height="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ToolbarSave}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding SaveAsCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            ToolTip="{DynamicResource SaveAs}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ContentSaveEditOutline" Width="18" Height="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ToolbarSaveAs}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,4,6,4"/>
+
+                    <Button Command="{Binding MakeBackupCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            ToolTip="{DynamicResource MakeBackup}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="BackupRestore" Width="18" Height="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ToolbarBackup}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding ExportVariablesCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            ToolTip="{DynamicResource ExportVariables}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FileExportOutline" Width="18" Height="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ToolbarExport}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding CloseCommand}"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Margin="0"
+                            ToolTip="{DynamicResource Close}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CloseCircleOutline" Width="18" Height="18" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ToolbarClose}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Search Card -->
+        <Border Grid.Row="1"
+                CornerRadius="10"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                Padding="12,6"
+                Margin="0,0,0,10">
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <materialDesign:PackIcon Grid.Column="0"
+                                         Kind="Magnify"
+                                         Width="20" Height="20"
+                                         VerticalAlignment="Center"
+                                         Opacity="0.65"
+                                         Margin="0,0,10,0"/>
+                <TextBox Grid.Column="1"
+                         Text="{Binding SearchLine, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         materialDesign:HintAssist.Hint="{DynamicResource Search}"
+                         materialDesign:TextFieldAssist.HasClearButton="True"
+                         materialDesign:TextFieldAssist.UnderlineBrush="{DynamicResource MaterialDesignPrimary}"
+                         BorderThickness="0"
+                         FontSize="14"
+                         VerticalAlignment="Center"
+                         Background="Transparent"/>
+            </Grid>
+        </Border>
+
+        <!-- Variables DataGrid Card -->
+        <Border Grid.Row="2"
+                CornerRadius="10"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                Padding="2">
+            <DataGrid HeadersVisibility="Column"
+                      ItemsSource="{Binding DisplayedVariables, Mode=OneWay}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserReorderColumns="False"
+                      CanUserResizeColumns="True"
+                      CanUserResizeRows="False"
+                      CanUserSortColumns="False"
+                      RowHeight="36"
+                      GridLinesVisibility="Horizontal"
+                      EnableRowVirtualization="True"
+                      EnableColumnVirtualization="False"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      ScrollViewer.CanContentScroll="True">
+                <DataGrid.Resources>
+                    <Style TargetType="{x:Type ScrollBar}">
+                        <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+                </DataGrid.Resources>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Width="0.76*" IsReadOnly="True" Binding="{Binding FullName, Mode=OneWay}">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="{DynamicResource Variable}" FontWeight="SemiBold" Margin="6,2"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="Padding" Value="8,0"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+
+                    <DataGridTextColumn Width="0.24*" Binding="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                        <DataGridTextColumn.Header>
+                            <TextBlock Text="{DynamicResource Value}" FontWeight="SemiBold" Margin="6,2"/>
+                        </DataGridTextColumn.Header>
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="VerticalAlignment" Value="Center"/>
+                                <Setter Property="Padding" Value="8,0"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- Modern Status Bar -->
+        <Border Grid.Row="3"
+                CornerRadius="8"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                Background="{DynamicResource MaterialDesignCardBackground}"
+                Padding="12,6"
+                Margin="0,10,0,0">
+            <Grid MinHeight="22">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0" Text="{Binding SearchLine, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Background="Transparent"/>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="FileDocumentOutline"
+                                             Width="15" Height="15"
+                                             VerticalAlignment="Center"
+                                             Opacity="0.65"
+                                             Margin="0,0,8,0"/>
+                    <TextBlock FontSize="12.5"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Opacity="0.85"
+                               Text="{Binding LeftInfoLine, Mode=OneWay}"/>
+                </StackPanel>
+
+                <ProgressBar Grid.Column="1"
+                             Width="120"
+                             Height="6"
+                             Margin="10,0,6,0"
+                             VerticalAlignment="Center"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="{Binding ProgressValue, Mode=OneWay}"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+
+                <Button Grid.Column="2"
+                        Content="{DynamicResource Cancel}"
+                        Command="{Binding CancelCommand}"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Height="24"
+                        Padding="8,0"
+                        FontSize="12"
+                        Margin="0,0,10,0"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"/>
+
+                <Border Grid.Column="3"
+                        CornerRadius="6"
+                        Padding="8,2"
+                        Margin="0,0,12,0"
+                        Background="{DynamicResource MaterialDesignDivider}"
+                        Visibility="{Binding IsSaveModified, Converter={StaticResource BoolToVis}}">
+                    <TextBlock FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Text="{Binding ModifiedInfoLine, Mode=OneWay}"/>
+                </Border>
+
+                <TextBlock Grid.Column="4"
+                           FontSize="12.5"
+                           FontWeight="Medium"
+                           Opacity="0.85"
+                           VerticalAlignment="Center"
+                           Text="{Binding RightInfoLine, Mode=OneWay}"/>
             </Grid>
-        </Grid>
-
-        <DataGrid Margin="0, 2, 0, 0" Grid.Row="2" HeadersVisibility="Column" ItemsSource="{Binding DataGridVariables, Mode=OneWay}"  Background="Transparent" AutoGenerateColumns="False"
-                  CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False" CanUserResizeColumns="False" CanUserResizeRows="False" CanUserSortColumns="False">
-            <DataGrid.Resources>
-                <Style TargetType="{x:Type ScrollBar}">
-                    <Setter Property="Background" Value="Transparent"/>
-                </Style>
-            </DataGrid.Resources>
-            <DataGrid.Columns>
-                <DataGridTextColumn Width="0.8*" Binding="{Binding FullName, Mode=OneWay}">
-                    <DataGridTextColumn.Header>
-                        <TextBlock Text="{DynamicResource Variable}"/>
-                    </DataGridTextColumn.Header>
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Width ="0.2*" Binding="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                    <DataGridTextColumn.Header>
-                        <TextBlock Text="{DynamicResource Value}"/>
-                    </DataGridTextColumn.Header>
-                </DataGridTextColumn>
-            </DataGrid.Columns>
-        </DataGrid>
-        <Grid Grid.Row="3" Margin="0 5 0 0" Height="20" >
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="20"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" FontSize="12" Text="{Binding LeftInfoLine, Mode=OneWay}" TextAlignment="Left"/>
-            <TextBlock Grid.Column="2" FontSize="12" Text="{Binding RightInfoLine, Mode=OneWay}" TextAlignment="Right"/>
-        </Grid>
+        </Border>
     </Grid>
 </Window>

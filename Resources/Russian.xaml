@@ -1,11 +1,35 @@
-﻿<ResourceDictionary 
+<ResourceDictionary 
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" 
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" 
     xmlns:system="clr-namespace:System;assembly=mscorlib">
 
 
     <!-- Main window -->
-    <system:String x:Key="GSETitle">Редактор сохранений Готики</system:String>
+    <system:String x:Key="GSETitle">GothicSaveEditor Redux</system:String>
+
+    <system:String x:Key="ToolbarOpen">Открыть</system:String>
+    <system:String x:Key="ToolbarSave">Сохранить</system:String>
+    <system:String x:Key="ToolbarSaveAs">Сохранить как</system:String>
+    <system:String x:Key="ToolbarBackup">Бэкап</system:String>
+    <system:String x:Key="ToolbarExport">Экспорт</system:String>
+    <system:String x:Key="ToolbarClose">Закрыть</system:String>
+    <system:String x:Key="ToolbarSettings">Настройки</system:String>
+    <system:String x:Key="ToolbarAbout">О программе</system:String>
+
+    <system:String x:Key="Ready">Готово — откройте файл SAVEDAT.SAV</system:String>
+    <system:String x:Key="UnsavedChangesFormat">Несохранённых изменений: {0}</system:String>
+    <system:String x:Key="VariablesCountFormat">Переменные: {0}</system:String>
+
+    <system:String x:Key="SettingsSectionGame">Папка с игрой</system:String>
+    <system:String x:Key="SettingsSectionLocalization">Язык и кодировка</system:String>
+    <system:String x:Key="SettingsSectionAppearance">Оформление и система</system:String>
+    <system:String x:Key="SettingsSectionBackups">Автоматические бэкапы</system:String>
+
+    <system:String x:Key="AboutTitle">О программе GothicSaveEditor Redux</system:String>
+    <system:String x:Key="AboutDescription">Современный и быстрый редактор сохранений для Gothic 1, Gothic 2 и крупных модов вроде Odyssee (.NET 10).</system:String>
+    <system:String x:Key="AboutFeatures">• Структурный парсер BinSafe (потокобезопасный, без ошибок массивов и переполнения)&#x0a;• Атомарное сохранение с проверкой целостности SHA-256&#x0a;• Автоматическое резервное копирование папок с ротацией в %LOCALAPPDATA%&#x0a;• Быстрый поиск и виртуализация списка даже при 100 000+ переменных</system:String>
+    <system:String x:Key="AboutCredits">Основано на оригинальном форке GothicSaveEditor от Flycrafting (автор оригинала — RightMAN).</system:String>
+    <system:String x:Key="AboutClose">Закрыть</system:String>
     <system:String x:Key="Savegame">Файл</system:String>
     <system:String x:Key="Open">Открыть(Ctrl+A)</system:String>
     <system:String x:Key="Save">Сохранить(Ctrl+S)</system:String>
@@ -23,12 +47,20 @@
 
     <system:String x:Key="Variable">Переменная</system:String>
     <system:String x:Key="Value">Значение</system:String>
+    <system:String x:Key="Search">Поиск переменных...</system:String>
+    <system:String x:Key="Cancel">Отмена</system:String>
 
 
     <!-- Settings window -->
     <system:String x:Key="SettingsWindow">Настройки</system:String>
     <system:String x:Key="GothicPath">Путь к папке с готикой</system:String>
     <system:String x:Key="Language">Язык</system:String>
+    <system:String x:Key="Encoding">Кодировка сохранения</system:String>
+    <system:String x:Key="Encoding1252">Windows-1252 (Западноевропейская / DE / EN)</system:String>
+    <system:String x:Key="Encoding1250">Windows-1250 (Центральноевропейская / PL)</system:String>
+    <system:String x:Key="Encoding1251">Windows-1251 (Кириллица / Русский)</system:String>
+    <system:String x:Key="DarkMode">Тёмная тема</system:String>
+    <system:String x:Key="AssociateSavFiles">Ассоциировать файлы .SAV с GothicSaveEditor</system:String>
     <system:String x:Key="KeepBackups">Хранить резервные копии сохранений</system:String>
     <system:String x:Key="OpenBackupsFolder">Открыть папку с резервными копиями</system:String>
     <system:String x:Key="DeleteBackups">Удалить все резервные копии</system:String>
@@ -41,6 +73,7 @@
 
     <!-- Message boxes -->
     <system:String x:Key="Warning">Предупреждение</system:String>
+    <system:String x:Key="UnexpectedError">Произошла непредвиденная ошибка:</system:String>
 
     <system:String x:Key="UnableToSaveSettings">Не удалось применить настройки! Убедитесь, что вы запустили программу с правами администратора. </system:String>
     <system:String x:Key="UnableToLoadSettings">Не удалось загрузить настройки! Используются стандартные.</system:String>
@@ -80,6 +113,7 @@
     
     <!--  Info lines states  -->
     <system:String x:Key="LoadingSaveGame">Загружается сохранение игры...</system:String>
+    <system:String x:Key="SavingSaveGame">Сохранение игры...</system:String>
     <system:String x:Key="ImportingVariables">Импортируются переменные...</system:String>
     <system:String x:Key="ExportingVariables">Экспортируются переменные...</system:String>
     <system:String x:Key="BackupCreated">Резервная копия была успешно создана! </system:String>
