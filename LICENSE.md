@@ -2,6 +2,7 @@
 The MIT License (MIT)
 
 Copyright (c) 2026 refskegg (GothicSaveEditor-Redux)
+
 Copyright (c) 2019 Original Authors / Flycrafting
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
