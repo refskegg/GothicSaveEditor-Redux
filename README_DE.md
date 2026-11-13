@@ -20,6 +20,20 @@ Der klassische GothicSaveEditor war über viele Jahre ein unverzichtbares Werkze
 
 ---
 
+## Kurzanleitung: Quest-Variablen verstehen
+
+`SAVEDAT.SAV` speichert alle Skriptvariablen des Spiels – sowohl für **Vanilla Gothic I & II** als auch für Mods wie **Odyssee**:
+
+| Präfix | Bedeutung | Typische Werte |
+|---|---|---|
+| `MIS_` | Missions-/Quest-Status im Tagebuch | `0` = Nicht gestartet, `1` = Läuft, `2` = Abgeschlossen, `3` = Gescheitert |
+| `DIA_` | Dialog-Option eines NPCs | `0` = Noch verfügbar, `1` = Bereits geführt / ausgeblendet |
+| *Ohne Präfix* | Zähler & Flags (z. B. besiegte Gegner, gesammelte Items) | Ganzzahlen |
+
+> **Hinweis:** Bei einer hängenden Quest sollte meist nicht nur `DIA_...` auf `1` gesetzt werden, da sonst lediglich die Gesprächsoption verschwindet. Prüfe stattdessen auch die zugehörige `MIS_...`-Variable oder den passenden Zähler. **GothicSaveEditor Redux** legt vor jeder Speicherung automatisch ein Backup an.
+
+---
+
 ## Highlights & Features
 
 - **Strukturierter `BinSafeReader` (.NET 10 / AnyCPU 64-Bit)**
