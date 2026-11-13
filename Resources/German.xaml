@@ -49,6 +49,17 @@
     <system:String x:Key="Search">Variablen suchen...</system:String>
     <system:String x:Key="Cancel">Abbrechen</system:String>
 
+    <system:String x:Key="FilterCategoryAll">Alle Kategorien</system:String>
+    <system:String x:Key="FilterCategoryQuests">Quests (MIS_)</system:String>
+    <system:String x:Key="FilterCategoryDialogs">Dialoge (DIA_)</system:String>
+    <system:String x:Key="FilterCategoryDefeated">Besiegte Gegner (_ISDEAD)</system:String>
+    <system:String x:Key="FilterCategoryModified">Nur Geänderte</system:String>
+
+    <system:String x:Key="FilterValueAll">Alle Werte</system:String>
+    <system:String x:Key="FilterValueZero">Wert = 0</system:String>
+    <system:String x:Key="FilterValueOne">Wert = 1</system:String>
+    <system:String x:Key="FilterValueGreaterThanZero">Wert &gt; 0</system:String>
+
     <!-- Einstellungsfenster -->
     <system:String x:Key="SettingsWindow">Einstellungen</system:String>
     <system:String x:Key="GothicPath">Pfad zum Gothic-Ordner</system:String>

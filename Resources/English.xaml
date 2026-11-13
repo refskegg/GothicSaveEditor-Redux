@@ -50,6 +50,17 @@
     <system:String x:Key="Search">Search variables...</system:String>
     <system:String x:Key="Cancel">Cancel</system:String>
 
+    <system:String x:Key="FilterCategoryAll">All Categories</system:String>
+    <system:String x:Key="FilterCategoryQuests">Quests (MIS_)</system:String>
+    <system:String x:Key="FilterCategoryDialogs">Dialogs (DIA_)</system:String>
+    <system:String x:Key="FilterCategoryDefeated">Defeated Enemies (_ISDEAD)</system:String>
+    <system:String x:Key="FilterCategoryModified">Modified Only</system:String>
+
+    <system:String x:Key="FilterValueAll">All Values</system:String>
+    <system:String x:Key="FilterValueZero">Value = 0</system:String>
+    <system:String x:Key="FilterValueOne">Value = 1</system:String>
+    <system:String x:Key="FilterValueGreaterThanZero">Value &gt; 0</system:String>
+
 
     <!-- Settings window -->
     <system:String x:Key="SettingsWindow">Settings</system:String>

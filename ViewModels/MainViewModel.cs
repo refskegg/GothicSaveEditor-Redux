@@ -3,39 +3,76 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
+using GothicSaveEditor.Core.Filtering;
 using GothicSaveEditor.Core.Primitives;
 using GothicSaveEditor.Core.Readers;
 using GothicSaveEditor.Core.Services;
 using GothicSaveEditor.Core.Utils;
-using GothicSaveEditor.Core.Writers;
 using GothicSaveEditor.Models;
 using NLog;
 
 namespace GothicSaveEditor.ViewModels
 {
+    public sealed record FilterOption<T>(T Value, string DisplayName);
+
     public partial class MainViewModel : ObservableObject
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        private IReadOnlyList<GothicVariable> _displayedVariables = Array.Empty<GothicVariable>();
-        public IReadOnlyList<GothicVariable> DisplayedVariables
+        private ListCollectionView _variablesView = new(Array.Empty<GothicVariable>());
+        public ICollectionView VariablesView
         {
-            get => _displayedVariables;
-            private set => SetProperty(ref _displayedVariables, value);
+            get => _variablesView;
+            private set => SetProperty(ref _variablesView, (ListCollectionView)value);
         }
 
         public ObservableCollection<Script> Scripts { get; } = new();
 
+        public ObservableCollection<FilterOption<VariableCategoryFilter>> CategoryFilterOptions { get; } = new();
+        public ObservableCollection<FilterOption<VariableValueFilter>> ValueFilterOptions { get; } = new();
+
+        private VariableCategoryFilter _selectedCategory = VariableCategoryFilter.All;
+        public FilterOption<VariableCategoryFilter>? SelectedCategoryFilter
+        {
+            get => FindOption(CategoryFilterOptions, _selectedCategory);
+            set
+            {
+                if (value != null && _selectedCategory != value.Value)
+                {
+                    _selectedCategory = value.Value;
+                    OnPropertyChanged();
+                    ApplyFiltersImmediate();
+                }
+            }
+        }
+
+        private VariableValueFilter _selectedValueFilter = VariableValueFilter.All;
+        public FilterOption<VariableValueFilter>? SelectedValueFilter
+        {
+            get => FindOption(ValueFilterOptions, _selectedValueFilter);
+            set
+            {
+                if (value != null && _selectedValueFilter != value.Value)
+                {
+                    _selectedValueFilter = value.Value;
+                    OnPropertyChanged();
+                    ApplyFiltersImmediate();
+                }
+            }
+        }
+
         private SaveGame? _openedSaveGame;
         private int _modifiedCount;
         private int _dynamicInfoVersion;
+
+        private VariableFilterCriteria _activeCriteria = new(string.Empty, VariableCategoryFilter.All, VariableValueFilter.All);
+        private VariableGridComparer _activeComparer = new(VariableSortColumn.Name, descending: false);
 
         private CancellationTokenSource? _operationCts;
         private CancellationTokenSource? _searchCts;
@@ -99,7 +136,42 @@ namespace GothicSaveEditor.ViewModels
         public MainViewModel()
         {
             InitializeCommands();
+            RefreshFilterLabels();
             _leftInfoLine = ResourceServices.GetString("Ready");
+        }
+
+        public void RefreshFilterLabels()
+        {
+            CategoryFilterOptions.Clear();
+            CategoryFilterOptions.Add(new FilterOption<VariableCategoryFilter>(VariableCategoryFilter.All, ResourceServices.GetString("FilterCategoryAll")));
+            CategoryFilterOptions.Add(new FilterOption<VariableCategoryFilter>(VariableCategoryFilter.Quests, ResourceServices.GetString("FilterCategoryQuests")));
+            CategoryFilterOptions.Add(new FilterOption<VariableCategoryFilter>(VariableCategoryFilter.Dialogs, ResourceServices.GetString("FilterCategoryDialogs")));
+            CategoryFilterOptions.Add(new FilterOption<VariableCategoryFilter>(VariableCategoryFilter.DefeatedEnemies, ResourceServices.GetString("FilterCategoryDefeated")));
+            CategoryFilterOptions.Add(new FilterOption<VariableCategoryFilter>(VariableCategoryFilter.ModifiedOnly, ResourceServices.GetString("FilterCategoryModified")));
+            OnPropertyChanged(nameof(SelectedCategoryFilter));
+
+            ValueFilterOptions.Clear();
+            ValueFilterOptions.Add(new FilterOption<VariableValueFilter>(VariableValueFilter.All, ResourceServices.GetString("FilterValueAll")));
+            ValueFilterOptions.Add(new FilterOption<VariableValueFilter>(VariableValueFilter.Zero, ResourceServices.GetString("FilterValueZero")));
+            ValueFilterOptions.Add(new FilterOption<VariableValueFilter>(VariableValueFilter.One, ResourceServices.GetString("FilterValueOne")));
+            ValueFilterOptions.Add(new FilterOption<VariableValueFilter>(VariableValueFilter.GreaterThanZero, ResourceServices.GetString("FilterValueGreaterThanZero")));
+            OnPropertyChanged(nameof(SelectedValueFilter));
+
+            OnPropertyChanged(nameof(ModifiedInfoLine));
+            if (_openedSaveGame == null && !IsBusy)
+                LeftInfoLine = ResourceServices.GetString("Ready");
+            UpdateVarCount();
+        }
+
+        private static FilterOption<T>? FindOption<T>(ObservableCollection<FilterOption<T>> list, T value)
+            where T : notnull
+        {
+            foreach (var item in list)
+            {
+                if (EqualityComparer<T>.Default.Equals(item.Value, value))
+                    return item;
+            }
+            return list.Count > 0 ? list[0] : null;
         }
 
         public bool CanCloseSave =>
@@ -159,6 +231,9 @@ namespace GothicSaveEditor.ViewModels
             _modifiedCount += isModified ? 1 : -1;
             if (_modifiedCount < 0) _modifiedCount = 0;
             NotifyModifiedChanged();
+
+            if (_selectedCategory == VariableCategoryFilter.ModifiedOnly)
+                ApplyFiltersImmediate();
         }
 
         private void ClearWorkSpace()
@@ -167,7 +242,7 @@ namespace GothicSaveEditor.ViewModels
             {
                 _searchCts?.Cancel();
                 UnsubscribeVariables(_openedSaveGame?.VariablesList);
-                DisplayedVariables = Array.Empty<GothicVariable>();
+                VariablesView = new ListCollectionView(Array.Empty<GothicVariable>());
                 Scripts.Clear();
                 _openedSaveGame = null;
                 LeftInfoLine = ResourceServices.GetString("Ready");
@@ -190,12 +265,33 @@ namespace GothicSaveEditor.ViewModels
                 return;
             }
 
-            int currentVarCount = DisplayedVariables.Count;
+            int currentVarCount = _variablesView.Count;
             int totalVarCount = _openedSaveGame.VariablesList.Count;
             string countStr = currentVarCount == totalVarCount
                 ? $"{totalVarCount:N0}"
                 : $"{currentVarCount:N0} / {totalVarCount:N0}";
             RightInfoLine = string.Format(ResourceServices.GetString("VariablesCountFormat"), countStr);
+        }
+
+        public void ApplySort(VariableSortColumn column, ListSortDirection direction)
+        {
+            _activeComparer = new VariableGridComparer(column, direction == ListSortDirection.Descending);
+            if (_openedSaveGame != null)
+            {
+                _variablesView.CustomSort = _activeComparer;
+            }
+        }
+
+        private void ApplyFiltersImmediate()
+        {
+            _searchCts?.Cancel();
+            _activeCriteria = new VariableFilterCriteria(_searchLine, _selectedCategory, _selectedValueFilter);
+
+            if (_openedSaveGame == null)
+                return;
+
+            _variablesView.Refresh();
+            UpdateVarCount();
         }
 
         private async void SetDynamicInfo(string resourceKey, bool setToPath = false)
@@ -237,7 +333,14 @@ namespace GothicSaveEditor.ViewModels
 
                 _searchLine = string.Empty;
                 OnPropertyChanged(nameof(SearchLine));
-                DisplayedVariables = saveGame.VariablesList;
+                _activeCriteria = new VariableFilterCriteria(string.Empty, _selectedCategory, _selectedValueFilter);
+
+                var view = new ListCollectionView(saveGame.VariablesList)
+                {
+                    CustomSort = _activeComparer,
+                    Filter = obj => obj is GothicVariable v && VariableFilter.Matches(v, _activeCriteria)
+                };
+                VariablesView = view;
 
                 LeftInfoLine = saveGame.FilePath;
                 UpdateVarCount();
@@ -267,46 +370,21 @@ namespace GothicSaveEditor.ViewModels
             _searchCts = cts;
             var ct = cts.Token;
 
-            var saveGame = _openedSaveGame;
-            if (saveGame == null)
+            if (_openedSaveGame == null)
                 return;
 
             try
             {
                 await Task.Delay(250, ct);
-
-                IReadOnlyList<GothicVariable> result;
-                if (string.IsNullOrWhiteSpace(query))
-                {
-                    result = saveGame.VariablesList;
-                }
-                else
-                {
-                    string trimmed = query.Trim();
-                    result = await Task.Run(() =>
-                    {
-                        var all = saveGame.VariablesList;
-                        var matches = new List<GothicVariable>(Math.Min(all.Count, 1024));
-                        for (int i = 0; i < all.Count; i++)
-                        {
-                            if ((i & 1023) == 0)
-                                ct.ThrowIfCancellationRequested();
-
-                            var item = all[i];
-                            if (item.FullName.Contains(trimmed, StringComparison.OrdinalIgnoreCase))
-                                matches.Add(item);
-                        }
-                        return (IReadOnlyList<GothicVariable>)matches;
-                    }, ct);
-                }
-
                 ct.ThrowIfCancellationRequested();
-                DisplayedVariables = result;
+
+                _activeCriteria = new VariableFilterCriteria(query, _selectedCategory, _selectedValueFilter);
+                _variablesView.Refresh();
                 UpdateVarCount();
             }
             catch (OperationCanceledException)
             {
-                // Superseded by newer search keystroke
+                // Superseded by newer keystroke
             }
             catch (Exception ex)
             {

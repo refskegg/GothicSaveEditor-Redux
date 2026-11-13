@@ -137,7 +137,7 @@
             </DockPanel>
         </Border>
 
-        <!-- Search Card -->
+        <!-- Search & Quick Filter Card -->
         <Border Grid.Row="1"
                 CornerRadius="10"
                 BorderThickness="1"
@@ -149,6 +149,10 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <materialDesign:PackIcon Grid.Column="0"
                                          Kind="Magnify"
@@ -165,6 +169,20 @@
                          FontSize="14"
                          VerticalAlignment="Center"
                          Background="Transparent"/>
+                <ComboBox Grid.Column="3"
+                          ItemsSource="{Binding CategoryFilterOptions}"
+                          DisplayMemberPath="DisplayName"
+                          SelectedItem="{Binding SelectedCategoryFilter, Mode=TwoWay}"
+                          MinWidth="175"
+                          FontSize="13"
+                          VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="5"
+                          ItemsSource="{Binding ValueFilterOptions}"
+                          DisplayMemberPath="DisplayName"
+                          SelectedItem="{Binding SelectedValueFilter, Mode=TwoWay}"
+                          MinWidth="130"
+                          FontSize="13"
+                          VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
@@ -175,8 +193,9 @@
                 BorderBrush="{DynamicResource MaterialDesignDivider}"
                 Background="{DynamicResource MaterialDesignCardBackground}"
                 Padding="2">
-            <DataGrid HeadersVisibility="Column"
-                      ItemsSource="{Binding DisplayedVariables, Mode=OneWay}"
+            <DataGrid x:Name="VariablesDataGrid"
+                      HeadersVisibility="Column"
+                      ItemsSource="{Binding VariablesView, Mode=OneWay}"
                       Background="Transparent"
                       BorderThickness="0"
                       AutoGenerateColumns="False"
@@ -185,7 +204,8 @@
                       CanUserReorderColumns="False"
                       CanUserResizeColumns="True"
                       CanUserResizeRows="False"
-                      CanUserSortColumns="False"
+                      CanUserSortColumns="True"
+                      Sorting="VariablesDataGrid_Sorting"
                       RowHeight="36"
                       GridLinesVisibility="Horizontal"
                       EnableRowVirtualization="True"
@@ -199,7 +219,10 @@
                     </Style>
                 </DataGrid.Resources>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Width="0.76*" IsReadOnly="True" Binding="{Binding FullName, Mode=OneWay}">
+                    <DataGridTextColumn Width="0.76*"
+                                        IsReadOnly="True"
+                                        SortMemberPath="FullName"
+                                        Binding="{Binding FullName, Mode=OneWay}">
                         <DataGridTextColumn.Header>
                             <TextBlock Text="{DynamicResource Variable}" FontWeight="SemiBold" Margin="6,2"/>
                         </DataGridTextColumn.Header>
@@ -211,7 +234,9 @@
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
 
-                    <DataGridTextColumn Width="0.24*" Binding="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                    <DataGridTextColumn Width="0.24*"
+                                        SortMemberPath="Value"
+                                        Binding="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                         <DataGridTextColumn.Header>
                             <TextBlock Text="{DynamicResource Value}" FontWeight="SemiBold" Margin="6,2"/>
                         </DataGridTextColumn.Header>

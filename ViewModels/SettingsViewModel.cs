@@ -39,6 +39,8 @@ namespace GothicSaveEditor.ViewModels
                     Options.Language = value;
                     App.SetLanguage(value);
                     RefreshEncodings();
+                    if (Application.Current.MainWindow?.DataContext is MainViewModel mainVm)
+                        mainVm.RefreshFilterLabels();
                     OnPropertyChanged();
                 }
             }

@@ -50,6 +50,17 @@
     <system:String x:Key="Search">Поиск переменных...</system:String>
     <system:String x:Key="Cancel">Отмена</system:String>
 
+    <system:String x:Key="FilterCategoryAll">Все категории</system:String>
+    <system:String x:Key="FilterCategoryQuests">Квесты (MIS_)</system:String>
+    <system:String x:Key="FilterCategoryDialogs">Диалоги (DIA_)</system:String>
+    <system:String x:Key="FilterCategoryDefeated">Побеждённые враги (_ISDEAD)</system:String>
+    <system:String x:Key="FilterCategoryModified">Только изменённые</system:String>
+
+    <system:String x:Key="FilterValueAll">Все значения</system:String>
+    <system:String x:Key="FilterValueZero">Значение = 0</system:String>
+    <system:String x:Key="FilterValueOne">Значение = 1</system:String>
+    <system:String x:Key="FilterValueGreaterThanZero">Значение &gt; 0</system:String>
+
 
     <!-- Settings window -->
     <system:String x:Key="SettingsWindow">Настройки</system:String>

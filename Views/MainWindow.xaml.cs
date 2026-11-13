@@ -2,6 +2,8 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using GothicSaveEditor.Core.Filtering;
 using GothicSaveEditor.ViewModels;
 
 namespace GothicSaveEditor.Views
@@ -44,6 +46,26 @@ namespace GothicSaveEditor.Views
         {
             if (!_viewModel.CanCloseSave)
                 e.Cancel = true;
+        }
+
+        private void VariablesDataGrid_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            e.Handled = true;
+
+            var nextDirection = e.Column.SortDirection == ListSortDirection.Ascending
+                ? ListSortDirection.Descending
+                : ListSortDirection.Ascending;
+
+            foreach (var col in VariablesDataGrid.Columns)
+                col.SortDirection = null;
+
+            e.Column.SortDirection = nextDirection;
+
+            var sortCol = string.Equals(e.Column.SortMemberPath, "Value", StringComparison.Ordinal)
+                ? VariableSortColumn.Value
+                : VariableSortColumn.Name;
+
+            _viewModel.ApplySort(sortCol, nextDirection);
         }
     }
 }
